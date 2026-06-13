@@ -1,30 +1,48 @@
-name: Deploy GitHub Pages
+name: Deploy to GitHub Pages
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
+jobs:
+  build:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v4
+      - name: Prepare site output
+        run: |
+          mkdir -p _site
+          cp mira-vask-folio.html _site/index.html
+          if [ -d FavICon ]; then
+            cp -v FavICon/favicon.svg FavICon/favicon.ico FavICon/favicon-32x32.png FavICon/favicon-16x16.png FavICon/apple-touch-icon.png _site/ 2>/dev/null || true
+          fi
+          if [ -d docs ]; then
+            cp -v docs/*.pdf _site/ 2>/dev/null || true
+          fi
 
-      - name: Upload Pages artifact
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v1
+        id: deployment
+        uses: actions/deploy-pages@v4
